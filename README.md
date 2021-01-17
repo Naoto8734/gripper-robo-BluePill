@@ -24,6 +24,13 @@ OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を�
 | SWCLK | 9 | | DCLK(SWD-Connector) |
 | RESET | 15 | | R |
 
+## ステッピングモータドライバA4988
+- [ステッピングモータードライバA4988 - スイッチサイエンス](https://www.switch-science.com/catalog/582/)
+ - 回路で、MS1,MS2,MS3はHIGHに固定しているので、1/16ステップ駆動
+- 駆動するモータ：[Nema 17 Bipolar 59Ncm (84oz.in) 2A 42x48mm 4 Wires w/ 1m Cable & Connector](https://www.omc-stepperonline.com/nema-17-bipolar-59ncm-84oz-in-2a-42x48mm-4-wires-w-1m-cable-and-connector.html)
+ - ステップアングルは、1.8[deg] = 360/200[deg]。
+- よって、200*16=3200パルスをA4988に送るとステッピングモータは1回転。
+
 ## C++に対応させる方法
 参考：[How to Use C++ with STM32CubeIDE - Shawn Hymel](https://shawnhymel.com/1941/how-to-use-c-with-stm32cubeide/)
 

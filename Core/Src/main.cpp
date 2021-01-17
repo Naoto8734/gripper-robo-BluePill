@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software component is licensed by ST under BSD 3-Clause license,
+ * the "License"; You may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at:
+ *                        opensource.org/licenses/BSD-3-Clause
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -48,7 +48,8 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
-
+volatile unsigned int counter = 0;
+volatile unsigned short enable_motor = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -100,19 +101,35 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+	//タイマー割り込みの開始
+	HAL_TIM_Base_Start_IT(&htim4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+
+	//Initialize A4988 pin
+	HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
+
+	HAL_GPIO_WritePin(A4988_STEP_G_GPIO_Port, A4988_STEP_G_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(A4988_STEP_Z_GPIO_Port, A4988_STEP_Z_Pin, GPIO_PIN_SET);
+	enable_motor = 1;
+	while (1) {
+		if (enable_motor == 1) {
+			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin,
+					GPIO_PIN_RESET);
+		}
+		if (enable_motor == 0) {
+			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin,
+					GPIO_PIN_SET);
+		}
 //	  HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
 //	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -304,7 +321,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 3600-1;
+  htim4.Init.Prescaler = 180-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 200-1;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -378,14 +395,26 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	//タイマー割り込み用のコールバック関数。
+	if (htim == &htim4) {
+		if (enable_motor == 1) {
+			counter++;
+			HAL_GPIO_TogglePin(A4988_STEP_G_GPIO_Port, A4988_STEP_G_Pin);
+			HAL_GPIO_TogglePin(A4988_STEP_Z_GPIO_Port, A4988_STEP_Z_Pin);
+			if (counter >= 200*16*2) {
+				enable_motor = 0;
+			}
+		}
+
+	}
+}
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	//Todo:リミットスイッチ用の割り込み
-	if(GPIO_Pin == LIMIT_SW_G_Pin){
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+	if (GPIO_Pin == LIMIT_SW_G_Pin) {
 	}
-	if(GPIO_Pin == LIMIT_SW_Z_Pin){
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+	if (GPIO_Pin == LIMIT_SW_Z_Pin) {
 	}
 }
 /* USER CODE END 4 */
@@ -397,7 +426,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
+	/* User can add his own implementation to report the HAL error return state */
 
   /* USER CODE END Error_Handler_Debug */
 }
