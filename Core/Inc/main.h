@@ -50,8 +50,6 @@ extern "C" {
 
 /* USER CODE END EM */
 
-void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -86,8 +84,10 @@ void Error_Handler(void);
 #define A4988_DIR_G_GPIO_Port GPIOB
 #define LIMIT_SW_Z_Pin GPIO_PIN_8
 #define LIMIT_SW_Z_GPIO_Port GPIOB
+#define LIMIT_SW_Z_EXTI_IRQn EXTI9_5_IRQn
 #define LIMIT_SW_G_Pin GPIO_PIN_9
 #define LIMIT_SW_G_GPIO_Port GPIOB
+#define LIMIT_SW_G_EXTI_IRQn EXTI9_5_IRQn
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

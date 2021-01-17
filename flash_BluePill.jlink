@@ -1,0 +1,5 @@
+r
+loadfile Debug/gripper-robo-BluePill.bin
+r0
+r1
+q
