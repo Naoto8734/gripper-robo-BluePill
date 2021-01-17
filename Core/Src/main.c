@@ -319,9 +319,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, A4988_DIR_Z_Pin|A4988_DIR_G_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SM_28BYJ_1_Pin|SM_28BYJ_2_Pin|SM_28BYJ_3_Pin|SM_28BYJ_4_Pin, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : LED_BUILTIN_Pin */
   GPIO_InitStruct.Pin = LED_BUILTIN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -335,13 +332,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : SM_28BYJ_1_Pin SM_28BYJ_2_Pin SM_28BYJ_3_Pin SM_28BYJ_4_Pin */
-  GPIO_InitStruct.Pin = SM_28BYJ_1_Pin|SM_28BYJ_2_Pin|SM_28BYJ_3_Pin|SM_28BYJ_4_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LIMIT_SW_Z_Pin LIMIT_SW_G_Pin */
   GPIO_InitStruct.Pin = LIMIT_SW_Z_Pin|LIMIT_SW_G_Pin;

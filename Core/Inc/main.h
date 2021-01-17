@@ -84,14 +84,6 @@ void Error_Handler(void);
 #define A4988_DIR_Z_GPIO_Port GPIOB
 #define A4988_DIR_G_Pin GPIO_PIN_11
 #define A4988_DIR_G_GPIO_Port GPIOB
-#define SM_28BYJ_1_Pin GPIO_PIN_8
-#define SM_28BYJ_1_GPIO_Port GPIOA
-#define SM_28BYJ_2_Pin GPIO_PIN_9
-#define SM_28BYJ_2_GPIO_Port GPIOA
-#define SM_28BYJ_3_Pin GPIO_PIN_10
-#define SM_28BYJ_3_GPIO_Port GPIOA
-#define SM_28BYJ_4_Pin GPIO_PIN_11
-#define SM_28BYJ_4_GPIO_Port GPIOA
 #define LIMIT_SW_Z_Pin GPIO_PIN_8
 #define LIMIT_SW_Z_GPIO_Port GPIOB
 #define LIMIT_SW_G_Pin GPIO_PIN_9
