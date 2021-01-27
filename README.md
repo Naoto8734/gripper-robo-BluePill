@@ -31,6 +31,11 @@ OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を�
  - ステップアングルは、1.8[deg] = 360/200[deg]。
 - よって、200*16=3200パルスをA4988に送るとステッピングモータは1回転。
 
+## I2C Slave
+- Slaveのアドレスを、`0x18`とする。(最終bitはR/Wなので、`0x0C`が7bitのアドレス)
+- レジスタアドレス：`0x75` (WHO_AM_I)
+ - 自身のSlaveアドレス`0x18`を返す
+ 
 ## C++に対応させる方法
 参考：[How to Use C++ with STM32CubeIDE - Shawn Hymel](https://shawnhymel.com/1941/how-to-use-c-with-stm32cubeide/)
 
