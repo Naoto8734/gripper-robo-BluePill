@@ -50,7 +50,6 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
-volatile uint8_t isRecieved; // 1 is recieved
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -102,11 +101,14 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-	HAL_ADC_Start_IT(&hadc1);
 	//タイマー割り込みの開始
 //	HAL_TIM_Base_Start_IT(&htim4);
 
 	HAL_TIM_Base_Start_IT(&htim3);
+
+	//ADCのキャリブレーション
+//	HAL_ADCEx_Calibration_Start(&hadc1);
+	HAL_ADC_Start(&hadc1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -126,29 +128,45 @@ int main(void)
 	//i2cのバッファは、uint8_tでデータ数＋１のサイズが望ましい。
 	uint8_t txBuf[3] = { 0 };
 	uint8_t rxBuf[3] = { 0 };
-	isRecieved = 0;
+	uint16_t i2c_tx_size = 1;
+	uint16_t adc_val = 12345;
 	while (1) {
-//		HAL_I2C_Slave_Receive_IT(&hi2c1, (uint8_t *)rxBuf, 1);
-//		while(!isRecieved){
-//			HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-//			HAL_Delay(1000);
-//		}
-
-		//Polling Mode
-		while(!(HAL_I2C_Slave_Receive(&hi2c1, (uint8_t *)rxBuf, 1, 1000)==HAL_OK));
-		//I2C recieved
-		isRecieved = 0;
-		switch (rxBuf[0]) {
-			case 0x75:
-				txBuf[0] = I2C_SLAVE_ADDR;
-				break;
-			default:
-				txBuf[0] = 0xFF;
-				break;
+//		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+		HAL_I2C_Slave_Receive_IT(&hi2c1, (uint8_t*) rxBuf, 1);
+		while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY){
+			HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+			HAL_ADC_PollForConversion(&hadc1, 100);
+			adc_val = HAL_ADC_GetValue(&hadc1);
 		}
-		rxBuf[0]=0x00;
-		HAL_I2C_Slave_Transmit(&hi2c1, (uint8_t *)txBuf, 1, 1000);
-		txBuf[0]=0x00;
+		//I2C recieved
+
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
+		switch (rxBuf[0]) {
+		case 0x75:
+			txBuf[0] = I2C_SLAVE_ADDR;
+			i2c_tx_size = 1;
+			break;
+		case 0x30:
+			adc_val = adc_val & 0x0FFF; //adc val is max 12 bit.
+			txBuf[0] = (adc_val>>8)&0xFF;
+			txBuf[1] = (adc_val>>0)&0xFF;
+			i2c_tx_size = 2;
+			break;
+		default:
+			txBuf[0] = 0xFF;
+			i2c_tx_size = 1;
+			break;
+		}
+		rxBuf[0] = 0x00;
+		rxBuf[1] = 0x00;
+		rxBuf[2] = 0x00;
+
+		HAL_I2C_Slave_Transmit(&hi2c1, (uint8_t*) txBuf, i2c_tx_size, 1000);
+		txBuf[0] = 0x00;
+		txBuf[1] = 0x00;
+		txBuf[2] = 0x00;
+		while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY)
+			;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -221,12 +239,12 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T4_CC4;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 7;
+  hadc1.Init.NbrOfConversion = 1;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -236,54 +254,6 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_1;
-  sConfig.Rank = ADC_REGULAR_RANK_2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_2;
-  sConfig.Rank = ADC_REGULAR_RANK_3;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = ADC_REGULAR_RANK_4;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_4;
-  sConfig.Rank = ADC_REGULAR_RANK_5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_5;
-  sConfig.Rank = ADC_REGULAR_RANK_6;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure Regular Channel
-  */
-  sConfig.Channel = ADC_CHANNEL_6;
-  sConfig.Rank = ADC_REGULAR_RANK_7;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -497,11 +467,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c){
-	isRecieved = 1;
-	UNUSED(hi2c);
-}
-
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	//Todo:リミットスイッチ用の割り込み
 	if (GPIO_Pin == LIMIT_SW_G_Pin) {
