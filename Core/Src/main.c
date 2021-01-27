@@ -32,6 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define I2C_SLAVE_ADDR 0x18
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,7 +46,6 @@ ADC_HandleTypeDef hadc1;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 volatile unsigned int counter = 0;
@@ -58,7 +58,6 @@ static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -99,10 +98,12 @@ int main(void)
   MX_ADC1_Init();
   MX_I2C1_Init();
   MX_TIM3_Init();
-  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+	HAL_ADC_Start_IT(&hadc1);
 	//タイマー割り込みの開始
-	HAL_TIM_Base_Start_IT(&htim4);
+//	HAL_TIM_Base_Start_IT(&htim4);
+
+	HAL_TIM_Base_Start_IT(&htim3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -112,20 +113,35 @@ int main(void)
 	HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
 
-	HAL_GPIO_WritePin(A4988_STEP_G_GPIO_Port, A4988_STEP_G_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(A4988_STEP_Z_GPIO_Port, A4988_STEP_Z_Pin, GPIO_PIN_SET);
-	enable_motor = 1;
+	//Enable Motor PWM
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
+//	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+//	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+
 	while (1) {
-		if (enable_motor == 1) {
-			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin,
-					GPIO_PIN_RESET);
-		}
-		if (enable_motor == 0) {
-			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin,
-					GPIO_PIN_SET);
-		}
-//	  HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-//	  HAL_Delay(1000);
+		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+		__HAL_TIM_SET_PRESCALER(&htim3,72-1);
+		HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+		HAL_Delay(500);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);//Motor G
+		HAL_Delay(500);
+
+		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+		__HAL_TIM_SET_PRESCALER(&htim3,144-1);
+		HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_SET);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+		HAL_Delay(1000);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);//Motor G
+
+		HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -198,12 +214,12 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_TRGO;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T4_CC4;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 7;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -213,6 +229,54 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_6;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = ADC_REGULAR_RANK_7;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -271,14 +335,15 @@ static void MX_TIM3_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 360-1;
+  htim3.Init.Prescaler = 72-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 200-1;
+  htim3.Init.Period = 100-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -290,60 +355,32 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
-
-}
-
-/**
-  * @brief TIM4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM4_Init(void)
-{
-
-  /* USER CODE BEGIN TIM4_Init 0 */
-
-  /* USER CODE END TIM4_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM4_Init 1 */
-
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 180-1;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 200-1;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM4_Init 2 */
-
-  /* USER CODE END TIM4_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
 
 }
 
@@ -366,7 +403,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, A4988_STEP_Z_Pin|A4988_STEP_G_Pin|A4988_DIR_Z_Pin|A4988_DIR_G_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, A4988_DIR_Z_Pin|A4988_DIR_G_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED_BUILTIN_Pin */
   GPIO_InitStruct.Pin = LED_BUILTIN_Pin;
@@ -375,8 +412,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_BUILTIN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : A4988_STEP_Z_Pin A4988_STEP_G_Pin A4988_DIR_Z_Pin A4988_DIR_G_Pin */
-  GPIO_InitStruct.Pin = A4988_STEP_Z_Pin|A4988_STEP_G_Pin|A4988_DIR_Z_Pin|A4988_DIR_G_Pin;
+  /*Configure GPIO pins : A4988_DIR_Z_Pin A4988_DIR_G_Pin */
+  GPIO_InitStruct.Pin = A4988_DIR_Z_Pin|A4988_DIR_G_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -395,20 +432,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	//タイマー割り込み用のコールバック関数。
-	if (htim == &htim4) {
-		if (enable_motor == 1) {
-			counter++;
-			HAL_GPIO_TogglePin(A4988_STEP_G_GPIO_Port, A4988_STEP_G_Pin);
-			HAL_GPIO_TogglePin(A4988_STEP_Z_GPIO_Port, A4988_STEP_Z_Pin);
-			if (counter >= 200*16*2) {
-				enable_motor = 0;
-			}
-		}
-
-	}
-}
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	//Todo:リミットスイッチ用の割り込み
