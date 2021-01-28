@@ -8,6 +8,7 @@ STM32F103(BluePill)用の、CubeIDEのワークスペース。
 
 - [ロボのグリッパー部のリポジトリ(これ)](https://github.com/Naoto8734/gripper-robo-BluePill)
 - [ロボのXY直動部のリポジトリ](https://github.com/Naoto8734/xy-axis-robo-BluePill)
+- [ロボの指先部のリポジトリ](https://github.com/Naoto8734/fingertip-robo-BluePill)
 
 ## 書き込み方法
 OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を使用し、STM32CubeIDEで生成したbinファイルを書き込み。
@@ -16,8 +17,9 @@ OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を�
 
 ### BluePillとJ-Link EDUとのピン接続
 
+
 | SWD(JLink) | Pin# | | BluePill |
- ---- | ---- | ---- | ---- | ---- 
+| ---- | ---- | ---- | ---- |
 | VTref | 1 | |3V3(SWD-Connector) |
 | GND | 4 | | GND(SWD-Connector) |
 | SWDIO | 7 | | DIO(SWD-Connector) |
