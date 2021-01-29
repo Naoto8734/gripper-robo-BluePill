@@ -47,9 +47,9 @@ typedef struct __potentio_rdc80 {
 #define ADC_RDC80_DEG_CONST 0.0830 //12bitのADC値から、角度に変換するための定数。
 #define ADC_RDC80_MIN 1023-10 //この値未満になった時に、計測する相を切り替える。
 #define ADC_RDC80_MAX 3071+10 //この値より上になった時に、計測する相を切り替える。
-#define ADC_INIT_VAL_RDC80_ZA 3507
-#define ADC_INIT_VAL_RDC80_ZB 1577 //こちらが最初に計測する相
-#define ADC_INIT_DEG_Z -39.09668 + 180.0 //初期角度(ADの実測値からの計算)
+#define ADC_INIT_VAL_RDC80_ZA 2140 //こちらが最初に計測する相
+#define ADC_INIT_VAL_RDC80_ZB 46
+#define ADC_INIT_DEG_Z 7.63672 //初期角度(ADの実測値からの計算)
 #define ADC_INIT_VAL_RDC80_GA 164
 #define ADC_INIT_VAL_RDC80_GB 2152 //こちらが最初に計測する相
 #define ADC_INIT_DEG_G 8.63281 - 180.0//初期角度(ADの実測値からの計算)
@@ -132,7 +132,7 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim3);
 	//prd initialize
 	prdZ.initial_degree = ADC_INIT_DEG_Z;
-	prdZ.half_rotation = 1;
+	prdZ.half_rotation = 0;//ADC_INIT_DEGの値により変える。
 	prdG.initial_degree = ADC_INIT_DEG_G;
 	prdG.half_rotation = -1;
 	//ADCのDMA転送開始
@@ -157,34 +157,35 @@ int main(void)
 
 
 	//usb通信のバッファは、64byte未満にする。
-//	uint8_t cdcBuff[60] = { 0 };
+	uint8_t cdcBuff[60] = { 0 };
 
 	while (1) {
-//		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveZ(-360.0*2*10);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveZ(-360.0*86);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveG(360.0*3.5);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveG(0.0);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveZ(0.0);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
 
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-//		driveG(360.0*5);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
-
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveG(0.0);b
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
-
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveZ(0.0);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
-
-//		sprintf(cdcBuff, "%4d, %4d, %4d, %4d\r\n", adc_vals[0],adc_vals[1], adc_vals[2],adc_vals[3]);
+		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+		sprintf(cdcBuff, "%4d, %4d, %4d, %4d,%4d, %4d, %4d\r\n", adc_vals[4],adc_vals[5], adc_vals[6]);
+//		adc2deg_rdc80Z();
 //		sprintf(cdcBuff, "%.3lf[deg]\r\n", prdZ.degree);
-//		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
-//		HAL_Delay(500);
+		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
+		HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -462,7 +463,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, A4988_DIR_Z_Pin|A4988_DIR_G_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, A4988_DIR_Z_Pin|A4988_DIR_G_Pin|LED_R_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED_BUILTIN_Pin */
   GPIO_InitStruct.Pin = LED_BUILTIN_Pin;
@@ -471,11 +472,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_BUILTIN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : A4988_DIR_Z_Pin A4988_DIR_G_Pin */
-  GPIO_InitStruct.Pin = A4988_DIR_Z_Pin|A4988_DIR_G_Pin;
+  /*Configure GPIO pins : A4988_DIR_Z_Pin A4988_DIR_G_Pin LED_R_Pin */
+  GPIO_InitStruct.Pin = A4988_DIR_Z_Pin|A4988_DIR_G_Pin|LED_R_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : SW_B_Pin SW_W_Pin */
+  GPIO_InitStruct.Pin = SW_B_Pin|SW_W_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LIMIT_SW_Z_Pin LIMIT_SW_G_Pin */

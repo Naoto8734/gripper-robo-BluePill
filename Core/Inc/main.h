@@ -84,6 +84,12 @@ void Error_Handler(void);
 #define A4988_DIR_Z_GPIO_Port GPIOB
 #define A4988_DIR_G_Pin GPIO_PIN_11
 #define A4988_DIR_G_GPIO_Port GPIOB
+#define LED_R_Pin GPIO_PIN_12
+#define LED_R_GPIO_Port GPIOB
+#define SW_B_Pin GPIO_PIN_4
+#define SW_B_GPIO_Port GPIOB
+#define SW_W_Pin GPIO_PIN_5
+#define SW_W_GPIO_Port GPIOB
 #define LIMIT_SW_Z_Pin GPIO_PIN_8
 #define LIMIT_SW_Z_GPIO_Port GPIOB
 #define LIMIT_SW_Z_EXTI_IRQn EXTI9_5_IRQn

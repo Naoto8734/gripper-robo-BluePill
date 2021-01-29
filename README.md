@@ -1,8 +1,12 @@
 # gripper-robo-BluePill
 STM32F103(BluePill)用の、CubeIDEのワークスペース。
-回路図は以下の通り。
+回路図は以下の通り。(**未修正なので、現物と異なる**)
+
 ![circuit-board](gripper-robo-controller-board.png)
-*28BYJ用のコネクタ及び配線は、使用しなくなったので除去済み*
+
+マイコンのピン配置は次の通り。
+
+![pinmap](gripper-robo-pinmap.png)
 
 ### グリッパーロボ用のリポジトリ一覧
 
@@ -16,7 +20,6 @@ OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を�
 参考：[J-LinkでコマンドラインからマイコンのFlashに書き込む](http://idken.net/posts/2019-07-14-jlinkflash/)
 
 ### BluePillとJ-Link EDUとのピン接続
-
 
 | SWD(JLink) | Pin# | | BluePill |
 | ---- | ---- | ---- | ---- |
