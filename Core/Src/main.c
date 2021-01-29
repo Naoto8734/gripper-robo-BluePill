@@ -71,7 +71,7 @@ TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 static uint16_t adc_vals[ADC_ARR_SIZE];
-volatile potentio_rdc80 prdZ, prdG;
+potentio_rdc80 prdZ, prdG;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,7 +82,8 @@ static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-void adc2deg_rdc80(potentio_rdc80 *);
+//void adc2deg_rdc80(potentio_rdc80 *);
+void adc2deg_rdc80Z(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -129,10 +130,8 @@ int main(void)
 	//prd initialize
 	prdZ.initial_degree = ADC_INIT_DEG_Z;
 	prdZ.half_rotation = 1;
-	prdZ.pre_phase = 1;
 	prdG.initial_degree = ADC_INIT_DEG_G;
 	prdG.half_rotation = -1;
-	prdG.pre_phase = 1;
 	//ADCのDMA転送開始
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_vals, ADC_ARR_SIZE);
   /* USER CODE END 2 */
@@ -141,7 +140,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
 	//Initialize A4988 pin
+	//正の方向 : deg+ : グリッパ閉じる。
 	HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+	//正の方向 : deg+ : 下に下がる。
 	HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
 
 	//Enable Motor PWM
@@ -149,18 +150,44 @@ int main(void)
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
 //	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
 //	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
-//	__HAL_TIM_SET_PRESCALER(&htim3,144-1);//Change motor speed
+//	__HAL_TIM_SET_PRESCALER(&htim3,288-1);//Change motor speed
+
 
 	//usb通信のバッファは、64byte未満にする。
-	uint8_t cdcBuff[60] = { 0 };
+//	uint8_t cdcBuff[60] = { 0 };
+	double cdeg_z = -360.0*10;
+	double cdeg_g = 0.0;
+	double tmpDeg = 0.0;
+	HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
 	while (1) {
-		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-		adc2deg_rdc80((potentio_rdc80 *)&prdZ);
-		adc2deg_rdc80((potentio_rdc80 *)&prdG);
-		sprintf(cdcBuff, "%.3lf[deg],%.3lf[deg]\r\n", prdZ.degree,prdG.degree);
+//		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+		adc2deg_rdc80Z();
+		tmpDeg = cdeg_z - prdZ.degree;
+		if(tmpDeg>=5.0){
+			if(tmpDeg>=120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
+			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
+			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		}else if (tmpDeg<= -5.0){
+			if(tmpDeg<=-120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
+			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
+			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_SET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		}else {
+			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
+			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+			if(cdeg_z!=0.0){
+				HAL_Delay(2000);
+				cdeg_z = 0.0;
+			}
+		}
 //		sprintf(cdcBuff, "%4d, %4d, %4d, %4d\r\n", adc_vals[0],adc_vals[1], adc_vals[2],adc_vals[3]);
-		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
-		HAL_Delay(500);
+//		sprintf(cdcBuff, "%.3lf[deg]\r\n", prdZ.degree);
+//		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
+//		HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -467,6 +494,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+//	if(htim == &htim4){
+//		adc2deg_rdc80((potentio_rdc80 *)&prdZ);
+//		adc2deg_rdc80((potentio_rdc80 *)&prdG);
+//		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+//	}
+//}
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	//Todo:リミットスイッチ用の割り込み
 	if (GPIO_Pin == LIMIT_SW_G_Pin) {
@@ -475,37 +509,35 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	}
 }
 
-//rdc80を用いた時の、12bitADC値から角度への変換関数。
-void adc2deg_rdc80(potentio_rdc80 *prd) {
-	if((prd->half_rotation%2) == 0){
+void adc2deg_rdc80Z(void){
+	if(((prdZ.half_rotation) %2) == 0){
 		//a相が計測範囲内
-		prd->degree = (double) ((prd->phase_a * ADC_RDC80_DEG_CONST) - 170.0);
-		if(prd->degree < -128){
-			//計測範囲を下回ったので、b相で再計測する。
-			prd->degree = (double) ((prd->phase_b * ADC_RDC80_DEG_CONST) - 170.0);
-			prd->half_rotation--;
-		}else if(prd->degree > 128){
-			//計測範囲を超えたので、b相で再計測する。
-			prd->degree = (double) ((prd->phase_b * ADC_RDC80_DEG_CONST) - 170.0);
-			prd->half_rotation++;
+		prdZ.degree = (double) ((prdZ.phase_a * ADC_RDC80_DEG_CONST) - 170.0);
+		if(prdZ.phase_a < 683){
+			//計測範囲を下回ったので、b相で計測する。
+			prdZ.degree = (double) ((prdZ.phase_b * ADC_RDC80_DEG_CONST) - 170.0);
+			prdZ.half_rotation--;
+		}else if (prdZ.phase_a > 3413){
+			//計測範囲を上回ったので、b相で計測する。
+			prdZ.degree = (double) ((prdZ.phase_b * ADC_RDC80_DEG_CONST) - 170.0);
+			prdZ.half_rotation++;
 		}
 	}else{
 		//b相が計測範囲内
-		prd->degree = (double) ((prd->phase_b * ADC_RDC80_DEG_CONST) - 170.0);
-		if(prd->degree < -128){
+		prdZ.degree = (double) ((prdZ.phase_b * ADC_RDC80_DEG_CONST) - 170.0);
+		if(prdZ.phase_b < 683){
 			//計測範囲を下回ったので、a相で再計測する。
-			prd->degree = (double) ((prd->phase_a * ADC_RDC80_DEG_CONST) - 170.0);
-			prd->half_rotation--;
-		}else if(prd->degree > 128){
+			prdZ.degree = (double) ((prdZ.phase_a * ADC_RDC80_DEG_CONST) - 170.0);
+			prdZ.half_rotation--;
+		}else if(prdZ.phase_b > 3413){
 			//計測範囲を超えたので、a相で再計測する。
-			prd->degree = (double) ((prd->phase_a * ADC_RDC80_DEG_CONST) - 170.0);
-			prd->half_rotation++;
+			prdZ.degree = (double) ((prdZ.phase_a * ADC_RDC80_DEG_CONST) - 170.0);
+			prdZ.half_rotation++;
 		}
 	}
-	prd->degree += (double) ((prd->half_rotation) * 180.0);
-	prd->degree -= prd->initial_degree;
+	prdZ.degree += (double) ((prdZ.half_rotation) * 180.0);
+	prdZ.degree -= prdZ.initial_degree;
 }
-
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	prdZ.phase_a = adc_vals[0];
 	prdZ.phase_b = adc_vals[1];
