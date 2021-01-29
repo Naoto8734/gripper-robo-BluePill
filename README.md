@@ -33,6 +33,13 @@ OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を�
  - ステップアングルは、1.8[deg] = 360/200[deg]。
 - よって、200*16=3200パルスをA4988に送るとステッピングモータは1回転。
 
+## 無限回転ポテンショメータRDC80
+- [RDC80シリーズ｜RDC803101A｜基本情報](https://tech.alpsalpine.com/prod/j/html/sensor/position/rdc80/rdc803101a.html)
+- 2T出力と4T出力が180度位相のずれたポテンショメータ。
+- 基準勾配は100[%]/340[deg]なので、12[bit]でAD変換した時、角度分解能は340/4096=~0.083[deg]
+- この基準勾配のうち、上限と下限の約3[%]/5[deg]は使用禁止領域。
+ - よって使用可能範囲は、5[deg]~335[deg]。12[bit]の場合、60~4036。
+
 ## I2C Slave
 - Slaveのアドレスを、`0x18`とする。(最終bitはR/Wなので、`0x0C`が7bitのアドレス)
 - レジスタアドレス：`0x75` (WHO_AM_I)
