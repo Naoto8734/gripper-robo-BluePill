@@ -32,7 +32,12 @@ OSはUbuntu。[J-Link EDU](https://www.embitek.co.jp/product/jlink-edu.html)を�
 - 駆動するモータ：[Nema 17 Bipolar 59Ncm (84oz.in) 2A 42x48mm 4 Wires w/ 1m Cable & Connector](https://www.omc-stepperonline.com/nema-17-bipolar-59ncm-84oz-in-2a-42x48mm-4-wires-w-1m-cable-and-connector.html)
  - ステップアングルは、1.8[deg] = 360/200[deg]。
 - よって、200*16=3200パルスをA4988に送るとステッピングモータは1回転。
-
+- Z軸は1/2減速した後、ピッチ2mmの台形ネジによって移動する。
+ - [304 ステンレス鋼 T12 台形スピンドルネジとナット - AliExpress](https://ja.aliexpress.com/item/32904305986.html)
+ - つまり、ステッピングモータ1回転で1mm進む。
+- グリッパは関節に1/20減速している。
+ - つまり、関節角度は1/20すれば算出できる。
+ 
 ## 無限回転ポテンショメータRDC80
 - [RDC80シリーズ｜RDC803101A｜基本情報](https://tech.alpsalpine.com/prod/j/html/sensor/position/rdc80/rdc803101a.html)
 - 2T出力と4T出力が180度位相のずれたポテンショメータ。

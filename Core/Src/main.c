@@ -84,6 +84,9 @@ static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 //void adc2deg_rdc80(potentio_rdc80 *);
 void adc2deg_rdc80Z(void);
+void driveZ(double command_deg);
+void adc2deg_rdc80G(void);
+void driveG(double command_deg);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -155,35 +158,29 @@ int main(void)
 
 	//usb通信のバッファは、64byte未満にする。
 //	uint8_t cdcBuff[60] = { 0 };
-	double cdeg_z = -360.0*10;
-	double cdeg_g = 0.0;
-	double tmpDeg = 0.0;
-	HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+
 	while (1) {
 //		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-		adc2deg_rdc80Z();
-		tmpDeg = cdeg_z - prdZ.degree;
-		if(tmpDeg>=5.0){
-			if(tmpDeg>=120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
-			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
-			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
-			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		}else if (tmpDeg<= -5.0){
-			if(tmpDeg<=-120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
-			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
-			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_SET);
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
-			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		}else {
-			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
-			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
-			HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-			if(cdeg_z!=0.0){
-				HAL_Delay(2000);
-				cdeg_z = 0.0;
-			}
-		}
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveZ(-360.0*2*10);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveG(360.0*5);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveG(0.0);b
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveZ(0.0);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
 //		sprintf(cdcBuff, "%4d, %4d, %4d, %4d\r\n", adc_vals[0],adc_vals[1], adc_vals[2],adc_vals[3]);
 //		sprintf(cdcBuff, "%.3lf[deg]\r\n", prdZ.degree);
 //		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
@@ -538,12 +535,95 @@ void adc2deg_rdc80Z(void){
 	prdZ.degree += (double) ((prdZ.half_rotation) * 180.0);
 	prdZ.degree -= prdZ.initial_degree;
 }
+
+void adc2deg_rdc80G(void){
+	if(((prdG.half_rotation) %2) == 0){
+		//a相が計測範囲内
+		prdG.degree = (double) ((prdG.phase_a * ADC_RDC80_DEG_CONST) - 170.0);
+		if(prdG.phase_a < 683){
+			//計測範囲を下回ったので、b相で計測する。
+			prdG.degree = (double) ((prdG.phase_b * ADC_RDC80_DEG_CONST) - 170.0);
+			prdG.half_rotation--;
+		}else if (prdG.phase_a > 3413){
+			//計測範囲を上回ったので、b相で計測する。
+			prdG.degree = (double) ((prdG.phase_b * ADC_RDC80_DEG_CONST) - 170.0);
+			prdG.half_rotation++;
+		}
+	}else{
+		//b相が計測範囲内
+		prdG.degree = (double) ((prdG.phase_b * ADC_RDC80_DEG_CONST) - 170.0);
+		if(prdG.phase_b < 683){
+			//計測範囲を下回ったので、a相で再計測する。
+			prdG.degree = (double) ((prdG.phase_a * ADC_RDC80_DEG_CONST) - 170.0);
+			prdG.half_rotation--;
+		}else if(prdG.phase_b > 3413){
+			//計測範囲を超えたので、a相で再計測する。
+			prdG.degree = (double) ((prdG.phase_a * ADC_RDC80_DEG_CONST) - 170.0);
+			prdG.half_rotation++;
+		}
+	}
+	prdG.degree += (double) ((prdG.half_rotation) * 180.0);
+	prdG.degree -= prdG.initial_degree;
+}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	prdZ.phase_a = adc_vals[0];
 	prdZ.phase_b = adc_vals[1];
 	prdG.phase_a = adc_vals[2];
 	prdG.phase_b = adc_vals[3];
 }
+
+//Z軸モータを指定の角度に駆動する関数。
+//マイナスを指定すると、下に動く。
+void driveZ(double command_deg){
+	uint8_t degOK = 0;
+	double tmpDeg = 0.0;
+	while (!degOK){
+		adc2deg_rdc80Z();
+		tmpDeg = command_deg - prdZ.degree;
+		if(tmpDeg>=5.0){
+			if(tmpDeg>=120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
+			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
+			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+		}else if (tmpDeg<= -5.0){
+			if(tmpDeg<=-120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
+			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
+			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_SET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
+		}else {
+			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
+			degOK = 1;
+		}
+	}
+}
+
+//プラスを指定すると閉じる。
+void driveG(double command_deg){
+	uint8_t degOK = 0;
+	double tmpDeg = 0.0;
+	while (!degOK){
+		adc2deg_rdc80G();
+		tmpDeg = command_deg - prdG.degree;
+		if(tmpDeg>=5.0){
+			if(tmpDeg>=120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
+			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
+			HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+		}else if (tmpDeg<= -5.0){
+			if(tmpDeg<=-120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
+			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
+			HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_SET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+		}else {
+			HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);//Motor G
+			degOK = 1;
+		}
+	}
+}
+
 /* USER CODE END 4 */
 
 /**
