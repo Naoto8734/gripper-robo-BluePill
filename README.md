@@ -4,6 +4,9 @@ STM32F103(BluePill)用の、CubeIDEのワークスペース。
 
 ![circuit-board](gripper-robo-controller-board.png)
 
+LED_R(回路図に未記入)は、ピンがHIGHで点灯。
+BluePill組み込みのLEDとは逆なので注意。
+SW_BとSW_Wは、プルアップするので常時HIGH。押したときだけLOW。
 マイコンのピン配置は次の通り。
 
 ![pinmap](gripper-robo-pinmap.png)

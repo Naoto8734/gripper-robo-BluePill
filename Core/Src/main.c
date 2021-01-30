@@ -39,8 +39,6 @@ typedef struct __potentio_rdc80 {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define I2C_SLAVE_ADDR 0x18
-#define WHO_AM_I_REGISTER 0x75
 //ADC
 #define ADC_ARR_SIZE 7
 #define ADC_12BIT_MAX 4095
@@ -70,7 +68,7 @@ I2C_HandleTypeDef hi2c1;
 TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
-static uint16_t adc_vals[ADC_ARR_SIZE];
+__IO uint16_t adc_vals[ADC_ARR_SIZE];
 potentio_rdc80 prdZ, prdG;
 /* USER CODE END PV */
 
@@ -136,7 +134,9 @@ int main(void)
 	prdG.initial_degree = ADC_INIT_DEG_G;
 	prdG.half_rotation = -1;
 	//ADCのDMA転送開始
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_vals, ADC_ARR_SIZE);
+	//ToDO:たまに、書き込んでもプログラムが作動しないときが有る。この時、start_DMAをコメントアウトして書き込むと、動くようになる。原因不明。
+	//ADCの変換Cycleを増やして様子見する。
+	HAL_ADC_Start_DMA(&hadc1,(uint32_t *)adc_vals, ADC_ARR_SIZE);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -151,41 +151,80 @@ int main(void)
 	//Enable Motor PWM
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
+//	__HAL_TIM_SET_PRESCALER(&htim3,288-1);//Change motor speed
 //	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
 //	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
-//	__HAL_TIM_SET_PRESCALER(&htim3,288-1);//Change motor speed
 
 
 	//usb通信のバッファは、64byte未満にする。
-	uint8_t cdcBuff[60] = { 0 };
+//	uint8_t cdcBuff[60] = { 0 };
 
 	while (1) {
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-//		driveZ(-360.0*86);
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-//		HAL_Delay(2000);
-//
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-//		driveG(360.0*3.5);
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-//		HAL_Delay(2000);
-//
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-//		driveG(0.0);
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-//		HAL_Delay(2000);
-//
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-//		driveZ(0.0);
-//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-//		HAL_Delay(2000);
+		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+			HAL_Delay(200);
+		}
+		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
 
-		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-		sprintf(cdcBuff, "%4d, %4d, %4d, %4d,%4d, %4d, %4d\r\n", adc_vals[4],adc_vals[5], adc_vals[6]);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveZ(360.0*86);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+
+		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+			HAL_Delay(200);
+		}
+		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveG(30.0*20.0);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
+		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+			HAL_Delay(200);
+		}
+		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveZ(0.0);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
+		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+			HAL_Delay(200);
+		}
+		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+		driveG(0.0);
+		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+		HAL_Delay(2000);
+
+//		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+//		if(HAL_GPIO_ReadPin(SW_W_GPIO_Port, SW_W_Pin) == GPIO_PIN_RESET){
+//			HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+//			HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+//			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+//		}else if(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) == GPIO_PIN_RESET){
+//			HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
+//			HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_SET);
+//			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 50);//Motor G
+//		}
+//		HAL_Delay(50);
+//		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+//		HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
+//		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);//Motor G
+
+//		HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+//		sprintf(cdcBuff, "%4d, %4d, %4d, %4d,%4d, %4d, %4d\r\n", adc_vals[4],adc_vals[5], adc_vals[6]);
 //		adc2deg_rdc80Z();
-//		sprintf(cdcBuff, "%.3lf[deg]\r\n", prdZ.degree);
-		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
-		HAL_Delay(500);
+//		adc2deg_rdc80G();
+//		sprintf(cdcBuff, "%.3lf[deg]\r\n", prdG.degree);
+//		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
+//		HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -273,7 +312,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -327,6 +366,7 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
+  HAL_ADCEx_Calibration_Start(&hadc1);
   /* USER CODE END ADC1_Init 2 */
 
 }
@@ -482,7 +522,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : SW_B_Pin SW_W_Pin */
   GPIO_InitStruct.Pin = SW_B_Pin|SW_W_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LIMIT_SW_Z_Pin LIMIT_SW_G_Pin */
@@ -498,13 +538,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-//	if(htim == &htim4){
-//		adc2deg_rdc80((potentio_rdc80 *)&prdZ);
-//		adc2deg_rdc80((potentio_rdc80 *)&prdG);
-//		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
-//	}
-//}
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	//Todo:リミットスイッチ用の割り込み
 	if (GPIO_Pin == LIMIT_SW_G_Pin) {
@@ -513,6 +546,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	}
 }
 
+//下に下げると負の値になる。
 void adc2deg_rdc80Z(void){
 	if(((prdZ.half_rotation) %2) == 0){
 		//a相が計測範囲内
@@ -581,19 +615,20 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 }
 
 //Z軸モータを指定の角度に駆動する関数。
-//マイナスを指定すると、下に動く。
+//プラスを指定すると、下に動く。
 void driveZ(double command_deg){
 	uint8_t degOK = 0;
 	double tmpDeg = 0.0;
 	while (!degOK){
 		adc2deg_rdc80Z();
-		tmpDeg = command_deg - prdZ.degree;
-		if(tmpDeg>=5.0){
+		tmpDeg = command_deg + prdZ.degree;
+		//adc2deg_rdc80Zは下方向へ動かすとマイナス。しかし、入力は下をプラスにしたいのでこうした。
+		if(tmpDeg>=3.0){
 			if(tmpDeg>=120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
 			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
 			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_RESET);
 			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 50);//Motor Z
-		}else if (tmpDeg<= -5.0){
+		}else if (tmpDeg<= -3.0){
 			if(tmpDeg<=-120.0)__HAL_TIM_SET_PRESCALER(&htim3,72-1);//Change motor speed
 			else __HAL_TIM_SET_PRESCALER(&htim3,1152-1);//Change motor speed
 			HAL_GPIO_WritePin(A4988_DIR_Z_GPIO_Port, A4988_DIR_Z_Pin, GPIO_PIN_SET);
@@ -603,6 +638,7 @@ void driveZ(double command_deg){
 			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, 0);//Motor Z
 			degOK = 1;
 		}
+		HAL_Delay(1);
 	}
 }
 
@@ -628,6 +664,7 @@ void driveG(double command_deg){
 			__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);//Motor G
 			degOK = 1;
 		}
+		HAL_Delay(1);
 	}
 }
 
