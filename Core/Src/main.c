@@ -35,6 +35,12 @@ typedef struct __potentio_rdc80 {
 	uint16_t phase_a;
 	uint16_t phase_b;
 } potentio_rdc80;
+
+typedef struct __hall_sensor_A1324 {
+	double sensor_value;
+	double pre_sensor_value;
+	uint8_t adc_num;
+} hall_sens;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -42,6 +48,7 @@ typedef struct __potentio_rdc80 {
 //ADC
 #define ADC_ARR_SIZE 7
 #define ADC_12BIT_MAX 4095
+//RDC80
 #define ADC_RDC80_DEG_CONST 0.0830 //12bitのADC値から、角度に変換するための定数。
 #define ADC_RDC80_MIN 1023-10 //この値未満になった時に、計測する相を切り替える。
 #define ADC_RDC80_MAX 3071+10 //この値より上になった時に、計測する相を切り替える。
@@ -51,6 +58,8 @@ typedef struct __potentio_rdc80 {
 #define ADC_INIT_VAL_RDC80_GA 164
 #define ADC_INIT_VAL_RDC80_GB 2152 //こちらが最初に計測する相
 #define ADC_INIT_DEG_G 8.63281 - 180.0//初期角度(ADの実測値からの計算)
+//A1324
+#define LPF_CONST 0.8
 //(本当は-172degだが、phaseの初期値を-1するためこの角度)
 /* USER CODE END PD */
 
@@ -70,6 +79,7 @@ TIM_HandleTypeDef htim3;
 /* USER CODE BEGIN PV */
 __IO uint16_t adc_vals[ADC_ARR_SIZE];
 potentio_rdc80 prdZ, prdG;
+hall_sens hsens1, hsens2, hsens3;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,9 +92,10 @@ static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 //void adc2deg_rdc80(potentio_rdc80 *);
 void adc2deg_rdc80Z(void);
-void driveZ(double command_deg);
+void driveZ(double);
 void adc2deg_rdc80G(void);
-void driveG(double command_deg);
+void driveG(double);
+void lpf(hall_sens *);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -128,15 +139,29 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	//タイマー割り込みの開始
 	HAL_TIM_Base_Start_IT(&htim3);
-	//prd initialize
+
+	// Potentio RDc80 initialize
 	prdZ.initial_degree = ADC_INIT_DEG_Z;
 	prdZ.half_rotation = 0;//ADC_INIT_DEGの値により変える。
 	prdG.initial_degree = ADC_INIT_DEG_G;
 	prdG.half_rotation = -1;
+
 	//ADCのDMA転送開始
 	//ToDO:たまに、書き込んでもプログラムが作動しないときが有る。この時、start_DMAをコメントアウトして書き込むと、動くようになる。原因不明。
 	//ADCの変換Cycleを増やして様子見する。
 	HAL_ADC_Start_DMA(&hadc1,(uint32_t *)adc_vals, ADC_ARR_SIZE);
+
+	// hall sensor initialize
+	hsens1.adc_num = 6; // PA7 <=> fingertip motor1
+	hsens2.adc_num = 5;
+	hsens3.adc_num = 4;
+	hsens1.sensor_value = 0.0;
+	hsens1.pre_sensor_value = 0.0;
+	hsens2.sensor_value = 0.0;
+	hsens2.pre_sensor_value = 0.0;
+	hsens3.sensor_value = 0.0;
+	hsens3.pre_sensor_value = 0.0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -157,51 +182,52 @@ int main(void)
 
 
 	//usb通信のバッファは、64byte未満にする。
-//	uint8_t cdcBuff[60] = { 0 };
+	uint8_t cdcBuff[60] = { 0 };
+	HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_SET);
 
 	while (1) {
-		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
-			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-			HAL_Delay(200);
-		}
-		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
-
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveZ(360.0*86);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-
-		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
-			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-			HAL_Delay(200);
-		}
-		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
-
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveG(30.0*20.0);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
-
-		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
-			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-			HAL_Delay(200);
-		}
-		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
-
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveZ(0.0);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
-
-		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
-			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-			HAL_Delay(200);
-		}
-		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
-
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
-		driveG(0.0);
-		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
-		HAL_Delay(2000);
+//		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+//			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+//			HAL_Delay(200);
+//		}
+//		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveZ(360.0*86);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//
+//		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+//			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+//			HAL_Delay(200);
+//		}
+//		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveG(30.0*20.0);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
+//
+//		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+//			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+//			HAL_Delay(200);
+//		}
+//		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveZ(0.0);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
+//
+//		while(HAL_GPIO_ReadPin(SW_B_GPIO_Port, SW_B_Pin) != GPIO_PIN_RESET){
+//			HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+//			HAL_Delay(200);
+//		}
+//		HAL_GPIO_WritePin(LED_R_GPIO_Port, LED_R_Pin, GPIO_PIN_RESET);
+//
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_RESET);
+//		driveG(0.0);
+//		HAL_GPIO_WritePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin, GPIO_PIN_SET);
+//		HAL_Delay(2000);
 
 //		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
 //		if(HAL_GPIO_ReadPin(SW_W_GPIO_Port, SW_W_Pin) == GPIO_PIN_RESET){
@@ -218,13 +244,15 @@ int main(void)
 //		HAL_GPIO_WritePin(A4988_DIR_G_GPIO_Port, A4988_DIR_G_Pin, GPIO_PIN_RESET);
 //		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_4, 0);//Motor G
 
-//		HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
-//		sprintf(cdcBuff, "%4d, %4d, %4d, %4d,%4d, %4d, %4d\r\n", adc_vals[4],adc_vals[5], adc_vals[6]);
+		HAL_GPIO_TogglePin(LED_BUILTIN_GPIO_Port, LED_BUILTIN_Pin);
+//		sprintf(cdcBuff, "%4d, %4d, %4d, %4d,     %4d, %4d, %4d\r\n", adc_vals[0],adc_vals[1], adc_vals[2], adc_vals[3],adc_vals[4],adc_vals[5], adc_vals[6]);
+		lpf(&hsens3);
+		sprintf(cdcBuff, "%4d, %.0lf\r\n", adc_vals[4],hsens3.sensor_value);
 //		adc2deg_rdc80Z();
 //		adc2deg_rdc80G();
 //		sprintf(cdcBuff, "%.3lf[deg]\r\n", prdG.degree);
-//		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
-//		HAL_Delay(500);
+		CDC_Transmit_FS((uint8_t*) cdcBuff, strlen(cdcBuff));
+		HAL_Delay(200);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -312,7 +340,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -668,6 +696,10 @@ void driveG(double command_deg){
 	}
 }
 
+void lpf(hall_sens * hs){
+	hs->sensor_value = (LPF_CONST * hs->pre_sensor_value) + ((1-LPF_CONST) * (double)adc_vals[hs->adc_num]);
+	hs->pre_sensor_value = hs->sensor_value;
+}
 /* USER CODE END 4 */
 
 /**
